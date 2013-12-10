@@ -20,7 +20,8 @@ function make_map(pins) //pins is a list of pins, a pin is the list [lat, lng, n
 
       google.maps.event.addListener(marker, 'click', (function(marker, i) {
         return function() {
-          infowindow.setContent('<a href="http://photoevidence.herokuapp.com'+marker.url+'">'+'Show image</a><br>' + pins[i][2]);
+          infowindow.setContent('<a href="http://photoevidence.herokuapp.com'+marker.url+'">'+'Show image</a><br>' + pins[i][2] + 
+          	"Lat: " + pins[i][0] + " Lng: " + pins[i][1]);
           infowindow.open(map, marker);
         }
       })(marker, i));
