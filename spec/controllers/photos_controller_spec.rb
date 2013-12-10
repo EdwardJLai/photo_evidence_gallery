@@ -215,6 +215,7 @@ describe PhotosController do
     
     context "successful authentication" do
       before(:each) do
+        allow_message_expectations_on_nil
         session["facebook_state"]=[@image.id, "message"]
         session["facebook_token"].stub_chain(:[],:[]).and_return("token")
         Photo.any_instance.stub(:image_url).and_return("fakeurl.com")
@@ -224,7 +225,7 @@ describe PhotosController do
       end
       
       it "updates the flash" do
-        flash[:success].should == "Photo Uploaded to Facebook"
+        flash[:notice].should == "Photo Uploaded to Facebook"
       end
       
       it "redirects to photo" do
@@ -237,22 +238,10 @@ describe PhotosController do
     before(:each) do
       @image = FactoryGirl.create(:photo)
     end
-    
-    context "successful authentication" do
-      it "calls upload" do
-        flickr.test.stub(:login).and_return(true)
-        @controller.stub(:flickr_upload).and_return(true)
-        session['flickr_authenticated'] = 'true'
-        
-        controller.should_receive(:flickr_upload)
-        get :flickr_auth, id: @image.id
-      end
-      
-    end
+
     context "unsuccessful authentication" do
       before(:each) do
-        flickr.test.stub(:login).and_raise("error")
-        flickr.stub(:get_request_token).and_return("token")
+        FlickRaw::Flickr.any_instance.stub(:get_request_token).and_return("token")
         get :flickr_auth, id: @image.id
       end
       
@@ -277,7 +266,7 @@ describe PhotosController do
       end
       
       it "updates the flash" do
-        flash[:success].should_not be_nil
+        flash[:notice].should_not be_nil
       end
       
       it "redirects to photo's page" do
@@ -304,8 +293,6 @@ describe PhotosController do
           session['flickr_token'].stub(:[]).and_return(true)
           FlickRaw::Flickr.any_instance.stub(:upload_photo)
           FlickRaw::Flickr.any_instance.stub(:get_access_token)
-          #flickr.stub(:access_token).and_return('token')
-          #flickr.stub(:access_secret).and_return('secret')
           FlickRaw::Flickr.any_instance.stub_chain("test.login").and_return(true)
           post :flickr_upload, id: @image.id, code: "seemslegit"
           

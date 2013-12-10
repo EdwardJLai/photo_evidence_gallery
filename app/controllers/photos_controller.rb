@@ -139,16 +139,23 @@ class PhotosController < ApplicationController
       :message => session["facebook_state"][1]
     )
     session["facebook_state"] = nil
-    flash[:success] = "Photo Uploaded to Facebook"
-    redirect_to photo_path(@photo) and return
+    redirect_to photo_path(@photo), notice: "Photo Uploaded to Facebook" and return
   end
 
   #GET
   def flickr_auth
-    if session['flickr_authenticated'] == 'true'
-      flickr_upload
-      return
+    flickr = FlickRaw::Flickr.new
+    flickr.access_token = session["flickr_access"]
+    flickr.access_secret = session["flickr_secret"]
+    begin
+      flickr.test.login
+    rescue
+      session['flickr_authenticated']='false'
     end
+
+
+    flickr_upload and return if session['flickr_authenticated'] == 'true'
+
     token = flickr.get_request_token
     @auth_url = flickr.get_authorize_url(token['oauth_token'], :perms => 'delete')
     session['flickr_token']=token
@@ -157,33 +164,36 @@ class PhotosController < ApplicationController
   #POST
   def flickr_upload
     set_photo
-    if session['flickr_authenticated'] != 'true' 
-      verify = params['code'].strip
-      session['code'] = verify
-      token = session['flickr_token']
-      begin
-        flickr = FlickRaw::Flickr.new
-        
-        flickr.get_access_token(token['oauth_token'], token['oauth_token_secret'], verify)
-        session["flickr_access"] = flickr.access_token
-        session["flickr_secret"] = flickr.access_secret
-        @login = flickr.test.login
-        session['flickr_authenticated'] = 'true'
-      rescue FlickRaw::OAuthClient::FailedResponse => e
-        flash[:error] = "Authentication failed : #{e.message}"
-      end
-    else
-      flickr = FlickRaw::Flickr.new
-      flickr.access_token = session["flickr_access"]
-      flickr.access_secret = session["flickr_secret"]
-      
-    end
+
+    return unless session['flickr_authenticated'] == 'true' || flickr_code_successful?
+    
+    flickr = FlickRaw::Flickr.new
+    flickr.access_token = session["flickr_access"]
+    flickr.access_secret = session["flickr_secret"]
+    
     flickr.upload_photo @photo.image_url, :title => 'Title', :description => 'This is the description'
-    flash[:success] = "Photo Uploaded to Flickr"
-    redirect_to photo_path(@photo) and return
+    redirect_to photo_path(@photo), notice: "Photo Uploaded to Flickr" and return
   end
 
-
+  def flickr_code_successful?
+    verify = params['code'].strip
+    session['code'] = verify
+    token = session['flickr_token']
+    begin
+      flickr = FlickRaw::Flickr.new
+      
+      flickr.get_access_token(token['oauth_token'], token['oauth_token_secret'], verify)
+      session["flickr_access"] = flickr.access_token
+      session["flickr_secret"] = flickr.access_secret
+      flickr.test.login
+      session['flickr_authenticated'] = 'true'
+    rescue FlickRaw::OAuthClient::FailedResponse => e
+      flash[:error] = "Authentication failed : #{e.message}"
+      redirect_to photo_path(@photo), alert: "Authentication failed : #{e.message}"
+      return false
+    end
+    return true
+  end
 
   private
   # Use callbacks to share common setup or constraints between actions.
